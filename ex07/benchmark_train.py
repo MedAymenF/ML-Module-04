@@ -73,7 +73,7 @@ if __name__ == "__main__":
     # with degrees ranging from 1 to 4
     # For each hypothesis consider a regularized factor ranging from 0 to 1
     # with a step of 0.2
-    degrees = list(range(1, 5))
+    degrees = range(1, 5)
     lambdas = np.arange(0, 1, 0.2).tolist()
     models = []
 
@@ -81,41 +81,39 @@ if __name__ == "__main__":
         print('-' * 80 * (degree != 1))
         mse_list = []
         models_list = []
+        x_train_poly = add_polynomial_features(x_train, degree)
+        x_valid_poly = add_polynomial_features(x_valid, degree)
+        x_test_poly = add_polynomial_features(x_test, degree)
+
+        # Normalization
+        min = x_train_poly.min(axis=0)
+        range = x_train_poly.max(axis=0) - min
+        x_train_poly = (x_train_poly - min) / range
+        x_valid_poly = (x_valid_poly - min) / range
+        x_test_poly = (x_test_poly - min) / range
         for lambda_ in lambdas:
             print(f'Training a model with polynomial degree\
  {degree} and a regularization factor of {lambda_:.1f}:\n')
-            my_lr = MyR(np.ones((1 + n_features * degree, 1)),
+            my_r = MyR(np.ones((1 + n_features * degree, 1)),
                         ALPHA, MAX_ITER, lambda_)
-            x_poly = add_polynomial_features(x_train, degree)
 
-            # Normalization
-            min = x_poly.min(axis=0)
-            range = x_poly.max(axis=0) - min
-            x_poly = (x_poly - min) / range
-
-            my_lr.fit_(x_poly, y_train)
-            predictions = my_lr.predict_(x_poly)
-            train_mse = my_lr.mse_(y_train, predictions)
+            my_r.fit_(x_train_poly, y_train)
+            predictions = my_r.predict_(x_train_poly)
+            train_mse = my_r.mse_(y_train, predictions)
             print(f'Training set MSE = {train_mse:e}')
 
             # Evaluate model on the validation set
-            x_poly = add_polynomial_features(x_valid, degree)
-
-            # Normalization
-            x_poly = (x_poly - min) / range
-
-            predictions = my_lr.predict_(x_poly)
-            valid_mse = my_lr.mse_(y_valid, predictions)
+            predictions = my_r.predict_(x_valid_poly)
+            valid_mse = my_r.mse_(y_valid, predictions)
             print(f'Validation set MSE = {valid_mse:e}\n\n')
 
             mse_list.append(valid_mse)
-            models_list.append(my_lr)
+            models_list.append(my_r)
 
             # Save model parameters to a list
             # We need them in space_avocado.py
-            thetas = my_lr.get_params_().copy()
+            thetas = my_r.get_params_().copy()
             thetas.resize((1 + 3 * 4, 1))
-            # print(repr(thetas))
             models.append(thetas)
 
         # Select the best λ value for this hypothesis
@@ -127,10 +125,7 @@ if __name__ == "__main__":
  polynomial degree {degree} is {best_lambda_}.\n")
 
         # Evaluate the best model on the test set
-        x_poly = add_polynomial_features(x_test, degree)
-        # Normalization
-        x_poly = (x_poly - min) / range
-        predictions = best_model.predict_(x_poly)
+        predictions = best_model.predict_(x_test_poly)
         test_mse = best_model.mse_(y_test, predictions)
         print(f'Test set MSE = {test_mse:e}')
 
